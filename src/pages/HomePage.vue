@@ -24,6 +24,8 @@ const {
   dashboardStats,
   updateOrderStatus,
   increasePriceMultiplier,
+  snoozeAlert,
+  clearSnooze,
   startTimeoutChecker,
   stopTimeoutChecker,
 } = useOrders()
@@ -65,6 +67,12 @@ function handleAlertAssign(order: Order) {
 
 function handleIncreasePrice(orderId: string) {
   increasePriceMultiplier(orderId)
+  clearSnooze(orderId)
+}
+
+function handleAlertClose() {
+  alertOrders.value.forEach(o => snoozeAlert(o.id))
+  alertModalVisible.value = false
 }
 
 onMounted(() => {
@@ -162,7 +170,7 @@ const statCards = computed(() => [
               <CollectorRank :collectors="collectors" />
             </div>
             <div class="flex-1 min-h-[280px] lg:min-h-0">
-              <RegionStats />
+              <RegionStats :orders="orders" :collectors="collectors" />
             </div>
           </div>
         </div>
@@ -179,7 +187,7 @@ const statCards = computed(() => [
     <AlertModal
       :visible="alertModalVisible"
       :orders="alertOrders"
-      @close="alertModalVisible = false"
+      @close="handleAlertClose"
       @assign="handleAlertAssign"
       @increase-price="handleIncreasePrice"
     />

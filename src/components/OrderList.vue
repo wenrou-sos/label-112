@@ -94,7 +94,7 @@ function getTabCount(key: TabType) {
           :key="order.id"
           :order="order"
           :selected="order.id === selectedOrderId"
-          @click="emit('select', order.id)"
+          @select="emit('select', order.id)"
           @dispatch="emit('dispatch', order)"
         />
       </template>

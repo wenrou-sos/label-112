@@ -6,11 +6,13 @@ export function useDispatch() {
   const { collectors, updateCollectorStatus } = useCollectors()
 
   function getRecommendedCollectors(order: Order, limit: number = 3): RecommendedCollector[] {
-    const busyCollectorIds = new Set<string>()
+    const activeCollectorIds = new Set(
+      collectors.value.filter(c => c.status === 'busy').map(c => c.id)
+    )
 
     const available = collectors.value.filter(c => {
-      if (c.status === 'offline') return false
-      if (busyCollectorIds.has(c.id)) return false
+      if (c.status !== 'online') return false
+      if (activeCollectorIds.has(c.id)) return false
       return true
     })
 

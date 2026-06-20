@@ -4,10 +4,11 @@ import { generateOrders } from '@/data/mock'
 import { useCollectors } from './useCollectors'
 
 const orders = ref<Order[]>([])
-const alertedOrderIds = ref<Set<string>>(new Set())
+const snoozeUntil = ref<Map<string, number>>(new Map())
 let checkTimer: number | null = null
 
 export const TIMEOUT_THRESHOLD = 10 * 60 * 1000
+export const SNOOZE_DURATION = 3 * 60 * 1000
 
 export function useOrders() {
   const { collectors, updateCollectorStatus } = useCollectors()
@@ -74,12 +75,17 @@ export function useOrders() {
     const now = Date.now()
     return pendingOrders.value.filter(o => {
       const age = now - o.createdAt
-      return age >= TIMEOUT_THRESHOLD && !alertedOrderIds.value.has(o.id)
+      const snoozeTime = snoozeUntil.value.get(o.id) ?? 0
+      return age >= TIMEOUT_THRESHOLD && now >= snoozeTime
     })
   }
 
-  function markAlerted(orderId: string) {
-    alertedOrderIds.value.add(orderId)
+  function snoozeAlert(orderId: string) {
+    snoozeUntil.value.set(orderId, Date.now() + SNOOZE_DURATION)
+  }
+
+  function clearSnooze(orderId: string) {
+    snoozeUntil.value.delete(orderId)
   }
 
   function startTimeoutChecker(callback: (orders: Order[]) => void) {
@@ -87,7 +93,7 @@ export function useOrders() {
     const runCheck = () => {
       const timedOut = checkTimeoutOrders()
       if (timedOut.length > 0) {
-        timedOut.forEach(o => markAlerted(o.id))
+        timedOut.forEach(o => snoozeAlert(o.id))
         callback(timedOut)
       }
     }
@@ -113,6 +119,8 @@ export function useOrders() {
     dashboardStats,
     updateOrderStatus,
     increasePriceMultiplier,
+    snoozeAlert,
+    clearSnooze,
     startTimeoutChecker,
     stopTimeoutChecker,
   }

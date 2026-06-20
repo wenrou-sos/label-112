@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { MapPin, Clock, Scale, User } from 'lucide-vue-next'
+import { MapPin, Clock, Scale, User, Send, Eye } from 'lucide-vue-next'
 import type { Order } from '@/types'
 import { categoryLabels, statusLabels, formatTime, getTimeAgo, formatWeight, formatPhone } from '@/utils/format'
 
@@ -11,8 +11,11 @@ interface Props {
 
 const props = defineProps<Props>()
 const emit = defineEmits<{
+  (e: 'select'): void
   (e: 'dispatch'): void
 }>()
+
+const showActions = computed(() => props.order.status === 'pending')
 
 const statusColorClass = computed(() => {
   const map: Record<string, string> = {
@@ -41,7 +44,7 @@ const waitTime = computed(() => {
         ? 'border-eco-400 bg-eco-50/50 dark:bg-eco-500/10 dark:border-eco-500/40 shadow-md'
         : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-eco-300 hover:shadow-card',
     ]"
-    @click="$emit('dispatch')"
+    @click="emit('select')"
   >
     <div class="flex items-start justify-between mb-3">
       <div>
@@ -93,6 +96,27 @@ const waitTime = computed(() => {
         <span class="px-2 py-0.5 bg-warning-500/15 text-warning-600 dark:text-warning-400 rounded text-xs font-medium">
           🔥 加价 {{ Math.round((order.priceMultiplier - 1) * 100) }}%
         </span>
+      </div>
+
+      <div
+        v-if="showActions"
+        class="flex gap-2 mt-3 pt-3 border-t border-gray-100 dark:border-gray-700"
+        @click.stop
+      >
+        <button
+          class="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 text-xs font-medium hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+          @click="emit('select')"
+        >
+          <Eye class="w-3.5 h-3.5" />
+          查看
+        </button>
+        <button
+          class="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-eco-500 to-eco-600 text-white text-xs font-medium hover:from-eco-600 hover:to-eco-700 transition-all shadow-sm hover:shadow-md"
+          @click="emit('dispatch')"
+        >
+          <Send class="w-3.5 h-3.5" />
+          立即派单
+        </button>
       </div>
     </div>
   </div>
