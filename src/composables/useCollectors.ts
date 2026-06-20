@@ -5,6 +5,13 @@ import { generateCollectors } from '@/data/mock'
 const collectors = ref<Collector[]>([])
 let updateTimer: number | null = null
 
+const skipMovementIds = new Set<string>()
+
+export function setSkipMovement(id: string, skip: boolean) {
+  if (skip) skipMovementIds.add(id)
+  else skipMovementIds.delete(id)
+}
+
 export function useCollectors() {
   if (collectors.value.length === 0) {
     collectors.value = generateCollectors(16)
@@ -28,7 +35,7 @@ export function useCollectors() {
 
   function simulateMovement() {
     collectors.value.forEach(c => {
-      if (c.status !== 'offline') {
+      if (c.status !== 'offline' && !skipMovementIds.has(c.id)) {
         c.location.lat += (Math.random() - 0.5) * 0.002
         c.location.lng += (Math.random() - 0.5) * 0.002
       }

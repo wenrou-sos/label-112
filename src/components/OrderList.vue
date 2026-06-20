@@ -10,9 +10,12 @@ interface Props {
   activeOrders: Order[]
   completedOrders: Order[]
   selectedOrderId?: string | null
+  isNavigating?: boolean
 }
 
-const props = defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), {
+  isNavigating: false,
+})
 const emit = defineEmits<{
   (e: 'select', id: string): void
   (e: 'dispatch', order: Order): void
@@ -94,6 +97,7 @@ function getTabCount(key: TabType) {
           :key="order.id"
           :order="order"
           :selected="order.id === selectedOrderId"
+          :is-navigating="isNavigating"
           @select="emit('select', order.id)"
           @dispatch="emit('dispatch', order)"
         />

@@ -1,15 +1,18 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { MapPin, Clock, Scale, User, Send, Eye } from 'lucide-vue-next'
+import { MapPin, Clock, Scale, User, Send, Eye, Loader2 } from 'lucide-vue-next'
 import type { Order } from '@/types'
 import { categoryLabels, statusLabels, formatTime, getTimeAgo, formatWeight, formatPhone } from '@/utils/format'
 
 interface Props {
   order: Order
   selected?: boolean
+  isNavigating?: boolean
 }
 
-const props = defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), {
+  isNavigating: false,
+})
 const emit = defineEmits<{
   (e: 'select'): void
   (e: 'dispatch'): void
@@ -111,11 +114,18 @@ const waitTime = computed(() => {
           查看
         </button>
         <button
-          class="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-eco-500 to-eco-600 text-white text-xs font-medium hover:from-eco-600 hover:to-eco-700 transition-all shadow-sm hover:shadow-md"
+          class="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-eco-500 to-eco-600 text-white text-xs font-medium hover:from-eco-600 hover:to-eco-700 transition-all shadow-sm hover:shadow-md disabled:opacity-60 disabled:cursor-not-allowed disabled:from-gray-400 disabled:to-gray-500 disabled:shadow-none"
+          :disabled="isNavigating"
           @click="emit('dispatch')"
         >
-          <Send class="w-3.5 h-3.5" />
-          立即派单
+          <template v-if="isNavigating">
+            <Loader2 class="w-3.5 h-3.5 animate-spin" />
+            正在导航中…
+          </template>
+          <template v-else>
+            <Send class="w-3.5 h-3.5" />
+            立即派单
+          </template>
         </button>
       </div>
     </div>

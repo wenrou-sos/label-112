@@ -4,6 +4,7 @@ import L from 'leaflet'
 import type { Collector, Order, Location } from '@/types'
 import { MAP_CENTER } from '@/data/mock'
 import { statusLabels } from '@/utils/format'
+import { setSkipMovement } from '@/composables/useCollectors'
 
 interface Props {
   collectors: Collector[]
@@ -31,8 +32,10 @@ const collectorMarkers = new Map<string, L.Marker>()
 const orderMarkers = new Map<string, L.Marker>()
 let routeLine: L.Polyline | null = null
 const trailMarkers: L.CircleMarker[] = []
-let arrivedMarker: L.Marker | null = null
 let arrivedPopup: L.Popup | null = null
+let arrivedPopupTimer: number | null = null
+let arrivedCollectorId: string | null = null
+let arrivedPopupCleanup: (() => void) | null = null
 
 let rafId: number | null = null
 let animActive = false
@@ -162,14 +165,30 @@ function clearTrailMarkers() {
   animTrailQueue.length = 0
 }
 
-function clearArrivedMarker() {
-  if (arrivedMarker) {
-    arrivedMarker.remove()
-    arrivedMarker = null
+function clearArrivedPopup() {
+  if (arrivedPopupTimer) {
+    clearTimeout(arrivedPopupTimer)
+    arrivedPopupTimer = null
   }
   if (arrivedPopup) {
     arrivedPopup.remove()
     arrivedPopup = null
+  }
+  if (arrivedPopupCleanup) {
+    arrivedPopupCleanup()
+    arrivedPopupCleanup = null
+  }
+}
+
+function clearArrivedState() {
+  clearArrivedPopup()
+  if (arrivedCollectorId) {
+    const collector = props.collectors.find(c => c.id === arrivedCollectorId)
+    const marker = collectorMarkers.get(arrivedCollectorId)
+    if (collector && marker) {
+      marker.setIcon(createCollectorIcon(collector.status))
+    }
+    arrivedCollectorId = null
   }
 }
 
@@ -178,19 +197,38 @@ function stopAnimation(keepPosition: boolean = true) {
     cancelAnimationFrame(rafId)
     rafId = null
   }
+  const wasActive = animActive
+  const prevCollectorId = animCollectorId
   animActive = false
 
-  if (keepPosition && animCollectorId && animOrigCollectorLoc) {
-    const collector = props.collectors.find(c => c.id === animCollectorId)
-    if (collector) {
-      animOrigCollectorLoc = { ...collector.location }
-    }
+  if (prevCollectorId) {
+    setSkipMovement(prevCollectorId, false)
   }
 
   clearTrailMarkers()
+
+  if (!keepPosition) {
+    if (prevCollectorId) {
+      const collector = props.collectors.find(c => c.id === prevCollectorId)
+      const marker = collectorMarkers.get(prevCollectorId)
+      if (collector && marker) {
+        marker.setLatLng([collector.location.lat, collector.location.lng])
+        marker.setIcon(createCollectorIcon(collector.status))
+      }
+    }
+    clearArrivedState()
+  } else {
+    clearArrivedPopup()
+  }
+
   animSegmentIndex = 0
   animSegmentProgress = 0
   animLastTimestamp = 0
+  animWaypoints = []
+  animCollectorId = null
+  animOrigCollectorLoc = null
+
+  return wasActive
 }
 
 function interpolateLocation(a: Location, b: Location, t: number): Location {
@@ -222,12 +260,16 @@ function addTrailPoint(lat: number, lng: number) {
   })
 }
 
-function showArrivedPopup(lat: number, lng: number) {
+function showArrivedPopup(lat: number, lng: number, collectorId: string) {
   if (!map) return
-  clearArrivedMarker()
+  clearArrivedPopup()
 
-  arrivedMarker = L.marker([lat, lng], { icon: createArrivedIcon(), zIndexOffset: 2000 })
-  arrivedMarker.addTo(map)
+  const marker = collectorMarkers.get(collectorId)
+  if (marker) {
+    marker.setLatLng([lat, lng])
+    marker.setIcon(createArrivedIcon())
+    arrivedCollectorId = collectorId
+  }
 
   arrivedPopup = L.popup({
     closeButton: false,
@@ -244,15 +286,20 @@ function showArrivedPopup(lat: number, lng: number) {
     `)
     .openOn(map)
 
-  setTimeout(() => {
+  arrivedPopupCleanup = () => {
     if (arrivedPopup) {
       arrivedPopup.remove()
       arrivedPopup = null
     }
-    if (arrivedMarker) {
-      arrivedMarker.remove()
-      arrivedMarker = null
+  }
+
+  arrivedPopupTimer = window.setTimeout(() => {
+    if (arrivedPopup) {
+      arrivedPopup.remove()
+      arrivedPopup = null
     }
+    arrivedPopupCleanup = null
+    arrivedPopupTimer = null
   }, 3000)
 }
 
@@ -268,7 +315,8 @@ function animationLoop(timestamp: number) {
   if (animSegmentIndex >= totalSegments) {
     animActive = false
     const finalLoc = animWaypoints[animWaypoints.length - 1]
-    showArrivedPopup(finalLoc.lat, finalLoc.lng)
+    setSkipMovement(animCollectorId, false)
+    showArrivedPopup(finalLoc.lat, finalLoc.lng, animCollectorId)
     emit('navigationComplete', animCollectorId)
     rafId = null
     return
@@ -316,6 +364,8 @@ function startNavigation(waypoints: Location[], collectorId: string) {
   animLastTimestamp = 0
   animActive = true
 
+  setSkipMovement(collectorId, true)
+
   const collector = props.collectors.find(c => c.id === collectorId)
   if (collector) {
     animOrigCollectorLoc = { ...collector.location }
@@ -342,12 +392,15 @@ function updateCollectorMarkers() {
   if (!map) return
   props.collectors.forEach(c => {
     const isNavigating = animActive && animCollectorId === c.id
+    const isArrived = arrivedCollectorId === c.id
     const marker = collectorMarkers.get(c.id)
     if (marker) {
-      if (!isNavigating) {
+      if (!isNavigating && !isArrived) {
         marker.setLatLng([c.location.lat, c.location.lng])
       }
-      marker.setIcon(createCollectorIcon(c.status))
+      if (!isArrived) {
+        marker.setIcon(createCollectorIcon(c.status))
+      }
     } else {
       const m = L.marker([c.location.lat, c.location.lng], {
         icon: createCollectorIcon(c.status),
@@ -427,8 +480,7 @@ function updateRoute() {
       routeLine.remove()
       routeLine = null
     }
-    stopAnimation()
-    clearArrivedMarker()
+    stopAnimation(false)
     return
   }
 
@@ -467,7 +519,7 @@ watch(
   () => props.selectedOrderId,
   (newId, oldId) => {
     if (newId !== oldId && animActive) {
-      stopAnimation()
+      stopAnimation(false)
     }
   }
 )
@@ -492,8 +544,7 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
-  stopAnimation()
-  clearArrivedMarker()
+  stopAnimation(false)
   if (map) {
     map.remove()
     map = null

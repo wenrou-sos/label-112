@@ -158,6 +158,7 @@ const statCards = computed(() => [
                 :active-orders="activeOrders"
                 :completed-orders="completedOrders"
                 :selected-order-id="selectedOrderId"
+                :is-navigating="!!navigatingCollectorId"
                 @select="handleSelectOrder"
                 @dispatch="handleDispatch"
               />
