@@ -50,9 +50,14 @@ const mapViewRef = ref<InstanceType<typeof MapView> | null>(null)
 
 watch(
   () => detailPanelOrder.value?.status,
-  (newStatus) => {
-    if (newStatus === 'completed' || newStatus === 'cancelled') {
+  (newStatus, oldStatus) => {
+    if (
+      (newStatus === 'completed' || newStatus === 'cancelled') &&
+      oldStatus !== undefined &&
+      oldStatus !== newStatus
+    ) {
       detailPanelVisible.value = false
+      selectedOrderId.value = null
     }
   }
 )
@@ -64,6 +69,7 @@ function handleSelectOrder(id: string) {
 
 function handlePanelClose() {
   detailPanelVisible.value = false
+  selectedOrderId.value = null
 }
 
 function handlePanelAssign(orderId: string, collectorId: string) {
