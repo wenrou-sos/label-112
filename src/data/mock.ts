@@ -1,4 +1,4 @@
-import type { Collector, Order, Region, OrderCategory, CollectorStatus } from '@/types'
+import type { Collector, Order, Region, OrderCategory, CollectorStatus, CollectorDailyStats } from '@/types'
 
 const SHANGHAI_CENTER = { lat: 31.2304, lng: 121.4737 }
 
@@ -50,9 +50,56 @@ function generatePhone(): string {
   return '138' + String(randomInt(10000000, 99999999))
 }
 
+function getDateKey(offsetDays: number): string {
+  const d = new Date()
+  d.setHours(0, 0, 0, 0)
+  d.setDate(d.getDate() - offsetDays)
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
+function generateDailyStats(days: number = 30): CollectorDailyStats[] {
+  const stats: CollectorDailyStats[] = []
+  for (let i = days - 1; i >= 0; i--) {
+    const baseFactor = Math.max(0.3, 1 - i * 0.015)
+    const weekdayBias = (() => {
+      const d = new Date()
+      d.setDate(d.getDate() - i)
+      const wd = d.getDay()
+      if (wd === 0 || wd === 6) return 1.2
+      return 1.0
+    })()
+    const factor = baseFactor * weekdayBias * (0.75 + Math.random() * 0.5)
+
+    const orders = Math.max(0, Math.round(randomInt(3, 25) * factor))
+    const weight = Math.round(randomInRange(30, 500) * factor * 10) / 10
+    const income = Math.round(randomInRange(120, 2000) * factor * 100) / 100
+    const requested = Math.round(orders * (1 + Math.random() * 0.3))
+    const accepted = Math.max(0, Math.round(requested * (0.75 + Math.random() * 0.23)))
+
+    stats.push({
+      dateKey: getDateKey(i),
+      orders,
+      weight,
+      income,
+      accepted,
+      requested,
+    })
+  }
+  return stats
+}
+
 export function generateCollectors(count: number = 16): Collector[] {
   return collectorNames.slice(0, count).map((name, i) => {
     const regionIndex = i % 4
+    const dailyStats = generateDailyStats(30)
+    const today = dailyStats[dailyStats.length - 1]
+    const totalWeight = dailyStats.reduce((s, d) => s + d.weight, 0)
+    const totalIncome = dailyStats.reduce((s, d) => s + d.income, 0)
+    const totalAccepted = dailyStats.reduce((s, d) => s + d.accepted, 0)
+    const totalRequested = dailyStats.reduce((s, d) => s + d.requested, 0)
     return {
       id: `c${i + 1}`,
       name,
@@ -61,11 +108,12 @@ export function generateCollectors(count: number = 16): Collector[] {
       status: statuses[i % statuses.length],
       location: randomOffset(SHANGHAI_CENTER, 5),
       stats: {
-        ordersToday: randomInt(5, 25),
-        totalWeight: randomInt(50, 500),
-        totalIncome: randomInt(200, 2000),
-        acceptRate: randomInRange(0.75, 0.98),
+        ordersToday: today.orders,
+        totalWeight: Math.round(totalWeight * 10) / 10,
+        totalIncome: Math.round(totalIncome * 100) / 100,
+        acceptRate: totalRequested > 0 ? totalAccepted / totalRequested : 0.85,
       },
+      dailyStats,
       regionId: `r${regionIndex + 1}`,
     }
   })

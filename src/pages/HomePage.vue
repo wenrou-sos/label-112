@@ -227,7 +227,7 @@ const statCards = computed(() => [
 
           <div class="lg:col-span-3 flex flex-col gap-4 lg:gap-6 min-h-0 order-3">
             <div class="flex-1 min-h-[280px] lg:min-h-0">
-              <CollectorRank :collectors="collectors" />
+              <CollectorRank />
             </div>
             <div class="flex-1 min-h-[280px] lg:min-h-0">
               <RegionStats :orders="orders" :collectors="collectors" />
