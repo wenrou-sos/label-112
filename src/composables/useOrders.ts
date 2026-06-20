@@ -1,11 +1,14 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import type { Order, OrderStatus, DashboardStats } from '@/types'
-import { generateOrders } from '@/data/mock'
+import { generateOrders, generateSingleOrder } from '@/data/mock'
 import { useCollectors } from './useCollectors'
 
 const orders = ref<Order[]>([])
 const snoozeUntil = ref<Map<string, number>>(new Map())
 let checkTimer: number | null = null
+let orderGenTimer: number | null = null
+let statusSimTimer: number | null = null
+let nextOrderId = 2000
 
 export const TIMEOUT_THRESHOLD = 10 * 60 * 1000
 export const SNOOZE_DURATION = 3 * 60 * 1000
@@ -108,8 +111,65 @@ export function useOrders() {
     }
   }
 
-  onMounted(() => {})
-  onUnmounted(stopTimeoutChecker)
+  function addNewOrder() {
+    const newOrder = generateSingleOrder(nextOrderId++)
+    orders.value.unshift(newOrder)
+    if (orders.value.length > 100) {
+      orders.value = orders.value.slice(0, 100)
+    }
+  }
+
+  function simulateOrderStatus() {
+    const pending = orders.value.filter(o => o.status === 'pending')
+    if (pending.length > 0 && Math.random() > 0.5) {
+      const order = pending[Math.floor(Math.random() * pending.length)]
+      const onlineCollectors = collectors.value.filter(c => c.status === 'online')
+      if (onlineCollectors.length > 0) {
+        const collector = onlineCollectors[Math.floor(Math.random() * onlineCollectors.length)]
+        updateOrderStatus(order.id, 'accepted', collector.id)
+      }
+    }
+
+    const active = orders.value.filter(o => o.status === 'accepted')
+    if (active.length > 0 && Math.random() > 0.6) {
+      const order = active[Math.floor(Math.random() * active.length)]
+      const age = Date.now() - (order.acceptedAt || order.createdAt)
+      if (age > 5 * 60 * 1000 || Math.random() > 0.7) {
+        updateOrderStatus(order.id, 'completed', order.collectorId)
+      }
+    }
+  }
+
+  function startOrderSimulation() {
+    if (orderGenTimer) return
+    orderGenTimer = window.setInterval(() => {
+      if (Math.random() > 0.4) {
+        addNewOrder()
+      }
+    }, 8000)
+
+    if (statusSimTimer) return
+    statusSimTimer = window.setInterval(simulateOrderStatus, 6000)
+  }
+
+  function stopOrderSimulation() {
+    if (orderGenTimer) {
+      clearInterval(orderGenTimer)
+      orderGenTimer = null
+    }
+    if (statusSimTimer) {
+      clearInterval(statusSimTimer)
+      statusSimTimer = null
+    }
+  }
+
+  onMounted(() => {
+    startOrderSimulation()
+  })
+  onUnmounted(() => {
+    stopTimeoutChecker()
+    stopOrderSimulation()
+  })
 
   return {
     orders,

@@ -71,6 +71,18 @@ export function generateCollectors(count: number = 16): Collector[] {
   })
 }
 
+const regionWeights = [0.35, 0.30, 0.20, 0.15]
+
+function pickWeightedRegionIndex(): number {
+  const r = Math.random()
+  let acc = 0
+  for (let i = 0; i < regionWeights.length; i++) {
+    acc += regionWeights[i]
+    if (r < acc) return i
+  }
+  return 0
+}
+
 export function generateOrders(count: number = 20): Order[] {
   const now = Date.now()
   return Array.from({ length: count }, (_, i) => {
@@ -82,26 +94,62 @@ export function generateOrders(count: number = 20): Order[] {
         : (Math.random() > 0.2 ? 'completed' : 'accepted')
     const acceptedAt = status !== 'pending' ? now - ageMinutes * 60000 + randomInt(60, 480) * 1000 : undefined
     const completedAt = status === 'completed' ? (acceptedAt ?? now) + randomInt(15, 60) * 60000 : undefined
-    const addrIdx = i % addresses.length
+    const regionIdx = pickWeightedRegionIndex()
+    const addrIdx = regionIdx * 3 + randomInt(0, 2)
+    const regionAddresses = [
+      ['浦东新区陆家嘴环路1000号', '浦东新区张杨路500号', '浦东新区世纪大道1200号'],
+      ['黄浦区南京东路100号', '静安区南京西路1788号', '徐汇区衡山路880号'],
+      ['闵行区莘庄地铁站南广场', '松江区中山中路196号', '长宁区虹桥路1438号'],
+      ['宝山区牡丹江路1288号', '普陀区长寿路1118号', '嘉定区城中路66号'],
+    ]
+    const addr = regionAddresses[regionIdx][addrIdx % 3]
 
     return {
       id: `o${1000 + i}`,
       userId: `u${randomInt(1, 100)}`,
       userName: userNames[i % userNames.length],
       userPhone: generatePhone(),
-      address: addresses[addrIdx],
+      address: addr,
       location: randomOffset(SHANGHAI_CENTER, 6),
-      category: categories[i % categories.length],
+      category: categories[randomInt(0, categories.length - 1)],
       estimatedWeight: randomInRange(2, 50),
       status,
       createdAt: now - ageMinutes * 60000,
       acceptedAt,
       completedAt,
       collectorId: acceptedAt ? `c${randomInt(1, 16)}` : undefined,
-      regionId: `r${(addrIdx % 4) + 1}`,
+      regionId: `r${regionIdx + 1}`,
       priceMultiplier: 1.0,
     }
   })
+}
+
+export function generateSingleOrder(id: number): Order {
+  const now = Date.now()
+  const regionIdx = pickWeightedRegionIndex()
+  const regionAddresses = [
+    ['浦东新区陆家嘴环路1000号', '浦东新区张杨路500号', '浦东新区世纪大道1200号'],
+    ['黄浦区南京东路100号', '静安区南京西路1788号', '徐汇区衡山路880号'],
+    ['闵行区莘庄地铁站南广场', '松江区中山中路196号', '长宁区虹桥路1438号'],
+    ['宝山区牡丹江路1288号', '普陀区长寿路1118号', '嘉定区城中路66号'],
+  ]
+  const addrIdx = randomInt(0, 2)
+  const addr = regionAddresses[regionIdx][addrIdx]
+
+  return {
+    id: `o${id}`,
+    userId: `u${randomInt(1, 100)}`,
+    userName: userNames[randomInt(0, userNames.length - 1)],
+    userPhone: generatePhone(),
+    address: addr,
+    location: randomOffset(SHANGHAI_CENTER, 6),
+    category: categories[randomInt(0, categories.length - 1)],
+    estimatedWeight: randomInRange(2, 50),
+    status: 'pending',
+    createdAt: now,
+    regionId: `r${regionIdx + 1}`,
+    priceMultiplier: 1.0,
+  }
 }
 
 export function generateRegions(): Region[] {

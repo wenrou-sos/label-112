@@ -11,18 +11,27 @@ const props = withDefaults(defineProps<Props>(), {
   height: 200,
 })
 
-const maxValue = computed(() => {
+function niceScale(maxData: number): { max: number; step: number } {
+  if (maxData <= 0) maxData = 1
+  const steps = [1, 2, 5, 10, 20, 25, 50, 100]
+  for (const step of steps) {
+    if (step * 4 >= maxData) {
+      return { max: step * 4, step }
+    }
+  }
+  const magnitude = Math.pow(10, Math.floor(Math.log10(maxData)))
+  const niceStep = Math.ceil(maxData / 4 / magnitude) * magnitude
+  return { max: niceStep * 4, step: niceStep }
+}
+
+const chartMax = computed(() => {
   const max = Math.max(...props.data.map(d => d.total), 1)
-  return Math.ceil(max / 10) * 10 || 10
+  return niceScale(max).max
 })
 
 const yTicks = computed(() => {
-  const ticks = []
-  const step = Math.ceil(maxValue.value / 4 / 5) * 5
-  for (let i = 0; i <= 4; i++) {
-    ticks.push(Math.round(step * i))
-  }
-  return ticks
+  const { step } = niceScale(Math.max(...props.data.map(d => d.total), 1))
+  return [0, 1, 2, 3, 4].map(i => Math.round(step * i))
 })
 </script>
 
@@ -49,7 +58,7 @@ const yTicks = computed(() => {
           v-for="tick in yTicks.slice(1)"
           :key="'line-' + tick"
           class="absolute left-0 right-0 border-t border-dashed border-gray-100 dark:border-gray-700/50 pointer-events-none"
-          :style="{ bottom: `${(tick / maxValue) * 100}%` }"
+          :style="{ bottom: `${(tick / chartMax) * 100}%` }"
         ></div>
 
         <div
