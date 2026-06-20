@@ -72,7 +72,7 @@ const yTicks = computed(() => {
 
           <div
             class="w-full max-w-[40px] rounded-t-md flex flex-col-reverse overflow-hidden transition-all duration-500 ease-out"
-            :style="{ height: `${(item.total / maxValue) * 100}%` }"
+            :style="{ height: `${(item.total / chartMax) * 100}%` }"
           >
             <div
               class="w-full bg-warning-400 dark:bg-warning-500/90 transition-all duration-500"

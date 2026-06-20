@@ -9,9 +9,12 @@ import { formatDistance } from '@/utils/distance'
 interface Props {
   visible: boolean
   order: Order | null
+  isNavigating?: boolean
 }
 
-const props = defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), {
+  isNavigating: false,
+})
 const emit = defineEmits<{
   (e: 'close'): void
   (e: 'assign', orderId: string, collectorId: string): void
@@ -195,11 +198,17 @@ function handleAssign() {
             </button>
             <button
               @click="handleAssign"
-              :disabled="!selectedCollectorId"
+              :disabled="!selectedCollectorId || isNavigating"
               class="flex-1 px-4 py-2.5 rounded-xl bg-gradient-to-r from-eco-500 to-eco-600 text-white font-medium hover:from-eco-600 hover:to-eco-700 transition-all shadow-lg shadow-eco-500/25 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
-              <Send class="w-4 h-4" />
-              确认派单
+              <template v-if="isNavigating">
+                <div class="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin"></div>
+                正在导航中…
+              </template>
+              <template v-else>
+                <Send class="w-4 h-4" />
+                确认派单
+              </template>
             </button>
           </div>
         </div>

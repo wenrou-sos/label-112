@@ -37,6 +37,7 @@ const dispatchModalVisible = ref(false)
 const alertModalVisible = ref(false)
 const alertOrders = ref<Order[]>([])
 const navigationRoute = ref<{ waypoints: Location[] } | null>(null)
+const navigatingCollectorId = ref<string | null>(null)
 
 function handleSelectOrder(id: string) {
   selectedOrderId.value = id
@@ -56,8 +57,16 @@ function handleAssign(orderId: string, collectorId: string) {
   const collector = collectors.value.find(c => c.id === collectorId)
   if (order && collector) {
     const route = getNavigationRoute(collector.location, order.location)
+    navigatingCollectorId.value = collectorId
     navigationRoute.value = route
   }
+}
+
+function handleNavComplete() {
+  setTimeout(() => {
+    navigatingCollectorId.value = null
+    navigationRoute.value = null
+  }, 3500)
 }
 
 function handleAlertAssign(order: Order) {
@@ -161,7 +170,9 @@ const statCards = computed(() => [
               :orders="orders"
               :selected-order-id="selectedOrderId"
               :navigation-route="navigationRoute"
+              :navigating-collector-id="navigatingCollectorId"
               @select-order="handleSelectOrder"
+              @navigation-complete="handleNavComplete"
             />
           </div>
 
@@ -180,6 +191,7 @@ const statCards = computed(() => [
     <DispatchModal
       :visible="dispatchModalVisible"
       :order="dispatchOrder"
+      :is-navigating="!!navigatingCollectorId"
       @close="dispatchModalVisible = false"
       @assign="handleAssign"
     />
