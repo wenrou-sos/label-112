@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { Package, CheckCircle2, Users, Clock, ChevronRight } from 'lucide-vue-next'
 import type { Order, Location } from '@/types'
 import { useCollectors } from '@/composables/useCollectors'
@@ -14,6 +14,7 @@ import CollectorRank from '@/components/CollectorRank.vue'
 import RegionStats from '@/components/RegionStats.vue'
 import DispatchModal from '@/components/DispatchModal.vue'
 import AlertModal from '@/components/AlertModal.vue'
+import OrderDetailPanel from '@/components/OrderDetailPanel.vue'
 
 const { collectors } = useCollectors()
 const {
@@ -39,8 +40,48 @@ const alertOrders = ref<Order[]>([])
 const navigationRoute = ref<{ waypoints: Location[] } | null>(null)
 const navigatingCollectorId = ref<string | null>(null)
 
+const detailPanelVisible = ref(false)
+const detailPanelOrder = computed<Order | null>(() => {
+  if (!selectedOrderId.value) return null
+  return orders.value.find(o => o.id === selectedOrderId.value) ?? null
+})
+
+const mapViewRef = ref<InstanceType<typeof MapView> | null>(null)
+
+watch(
+  () => detailPanelOrder.value?.status,
+  (newStatus) => {
+    if (newStatus === 'completed' || newStatus === 'cancelled') {
+      detailPanelVisible.value = false
+    }
+  }
+)
+
 function handleSelectOrder(id: string) {
   selectedOrderId.value = id
+  detailPanelVisible.value = true
+}
+
+function handlePanelClose() {
+  detailPanelVisible.value = false
+}
+
+function handlePanelAssign(orderId: string, collectorId: string) {
+  handleAssign(orderId, collectorId)
+}
+
+function handleLocateAddress(location: Location) {
+  if (mapViewRef.value) {
+    mapViewRef.value.panToLocation(location)
+  }
+}
+
+function handleNavigateCollector(collectorId: string, route: { waypoints: Location[] }) {
+  const collector = collectors.value.find(c => c.id === collectorId)
+  if (collector) {
+    navigatingCollectorId.value = collectorId
+    navigationRoute.value = route
+  }
 }
 
 function handleDispatch(order: Order) {
@@ -167,6 +208,7 @@ const statCards = computed(() => [
 
           <div class="lg:col-span-6 min-h-[400px] lg:min-h-0 order-1 lg:order-2">
             <MapView
+              ref="mapViewRef"
               :collectors="collectors"
               :orders="orders"
               :selected-order-id="selectedOrderId"
@@ -203,6 +245,16 @@ const statCards = computed(() => [
       @close="handleAlertClose"
       @assign="handleAlertAssign"
       @increase-price="handleIncreasePrice"
+    />
+
+    <OrderDetailPanel
+      :visible="detailPanelVisible"
+      :order="detailPanelOrder"
+      :is-navigating="!!navigatingCollectorId"
+      @close="handlePanelClose"
+      @assign="handlePanelAssign"
+      @locate-address="handleLocateAddress"
+      @navigate-collector="handleNavigateCollector"
     />
   </div>
 </template>

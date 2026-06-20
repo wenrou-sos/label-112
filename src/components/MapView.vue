@@ -125,19 +125,19 @@ function createTrailMarker(lat: number, lng: number, opacity: number, isDark: bo
 
 function createOrderIcon(status: string, isSelected: boolean) {
   const isPending = status === 'pending'
-  const size = isSelected ? 44 : 36
+  const size = isSelected ? 52 : 36
   return L.divIcon({
     className: 'order-marker',
     html: `
-      <div style="position: relative; width: ${size}px; height: ${size}px;">
+      <div style="position: relative; width: ${size}px; height: ${size}px; ${isSelected ? 'animation: selectedBounce 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);' : ''}">
         <div style="
           position: absolute;
           inset: 0;
           background: ${isPending ? '#ef4444' : '#3b82f6'};
           transform: rotate(45deg);
           border: 3px solid white;
-          border-radius: 6px 6px 6px 0;
-          box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+          border-radius: 8px 8px 8px 0;
+          box-shadow: ${isSelected ? '0 6px 20px rgba(0,0,0,0.35), 0 0 0 4px rgba(59, 130, 246, 0.3)' : '0 4px 12px rgba(0,0,0,0.25)'};
           ${isPending ? 'animation: pulse 1.5s infinite;' : ''}
         "></div>
         <div style="
@@ -145,7 +145,7 @@ function createOrderIcon(status: string, isSelected: boolean) {
           top: 50%;
           left: 50%;
           transform: translate(-50%, -60%);
-          font-size: ${isSelected ? '18px' : '15px'};
+          font-size: ${isSelected ? '22px' : '15px'};
           z-index: 1;
         ">📍</div>
       </div>
@@ -388,6 +388,13 @@ function resetCollectorMarkerIcon(collectorId: string) {
   }
 }
 
+function panToLocation(location: { lat: number; lng: number }) {
+  if (!map) return
+  map.flyTo([location.lat, location.lng], 15, {
+    duration: 0.6,
+  })
+}
+
 function updateCollectorMarkers() {
   if (!map) return
   props.collectors.forEach(c => {
@@ -449,6 +456,7 @@ function updateOrderMarkers() {
     if (marker) {
       marker.setLatLng([o.location.lat, o.location.lng])
       marker.setIcon(createOrderIcon(o.status, isSelected))
+      marker.setZIndexOffset(isSelected ? 1000 : 100)
       if (isSelected) marker.openPopup()
     } else {
       const m = L.marker([o.location.lat, o.location.lng], {
@@ -554,6 +562,7 @@ onUnmounted(() => {
 defineExpose({
   stopAnimation,
   resetCollectorMarkerIcon,
+  panToLocation,
 })
 </script>
 
@@ -617,6 +626,11 @@ defineExpose({
 @keyframes pulse {
   0%, 100% { box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4); }
   50% { box-shadow: 0 4px 20px rgba(239, 68, 68, 0.8); }
+}
+@keyframes selectedBounce {
+  0% { transform: scale(0.5); opacity: 0; }
+  60% { transform: scale(1.15); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
 }
 @keyframes arrivedBounce {
   0% { transform: translateY(-30px) scale(0.6); opacity: 0; }
