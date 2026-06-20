@@ -45,7 +45,7 @@ const rankedList = computed<CollectorRankedStats[]>(() =>
 )
 
 const trendData = computed<CollectorTrend[]>(() =>
-  getTrendData(timeRange.value, sortBy.value)
+  getTrendData(timeRange.value, 'orders')
 )
 
 function getStatValue(rs: CollectorRankedStats): string {
@@ -167,16 +167,7 @@ function getDotPosition(trend: CollectorTrend, index: number) {
 }
 
 function sortValueUnit(): string {
-  switch (sortBy.value) {
-    case 'orders':
-      return '单'
-    case 'weight':
-      return 'kg'
-    case 'income':
-      return '元'
-    case 'acceptRate':
-      return '%'
-  }
+  return '单'
 }
 </script>
 
@@ -244,7 +235,7 @@ function sortValueUnit(): string {
           <p
             class="text-[11px] font-medium text-gray-600 dark:text-gray-300"
           >
-            TOP 3 趋势
+            TOP 3 接单量趋势
           </p>
         </div>
         <p class="text-[10px] text-gray-400 dark:text-gray-500">

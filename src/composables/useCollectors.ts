@@ -172,16 +172,24 @@ export function useCollectors() {
       let rankChange: 'up' | 'down' | 'new' | 'same' = 'same'
       let rankChangeAmount = 0
 
-      if (prevRank === null) {
-        if (rank <= limit) rankChange = 'new'
-      } else if (rank < prevRank) {
-        rankChange = 'up'
-        rankChangeAmount = prevRank - rank
-      } else if (rank > prevRank) {
+      const wasInList = prevRank !== null && prevRank <= limit
+      const isInList = rank <= limit
+
+      if (!wasInList && isInList) {
+        rankChange = 'new'
+      } else if (wasInList && isInList) {
+        if (rank < prevRank) {
+          rankChange = 'up'
+          rankChangeAmount = prevRank - rank
+        } else if (rank > prevRank) {
+          rankChange = 'down'
+          rankChangeAmount = rank - prevRank
+        } else {
+          rankChange = 'same'
+        }
+      } else if (wasInList && !isInList) {
         rankChange = 'down'
-        rankChangeAmount = rank - prevRank
-      } else {
-        rankChange = 'same'
+        rankChangeAmount = rank - (prevRank ?? rank)
       }
 
       return {
@@ -205,27 +213,70 @@ export function useCollectors() {
     const top = getRankedCollectors(range, sortBy, 3)
     const top3 = top.filter((x) => x.rank <= 3)
 
-    let labels: string[] = []
     let periodCount = 0
-    let periodFn: (offset: number) => string = () => ''
+    const periodKeys: { key: string; label: string }[] = []
 
     switch (range) {
       case 'day':
         periodCount = 7
-        periodFn = (i) => getDateLabel(6 - i)
+        for (let i = 6; i >= 0; i--) {
+          periodKeys.push({
+            key: getDateKey(i),
+            label: getDateLabel(i),
+          })
+        }
         break
       case 'week':
         periodCount = 4
-        periodFn = (i) => getWeekLabel(3 - i)
+        for (let i = 3; i >= 0; i--) {
+          periodKeys.push({
+            key: `week-${i}`,
+            label: getWeekLabel(i),
+          })
+        }
         break
       case 'month':
         periodCount = 6
-        periodFn = (i) => getMonthLabel(5 - i)
+        for (let i = 5; i >= 0; i--) {
+          const d = new Date()
+          d.setMonth(d.getMonth() - i)
+          const y = d.getFullYear()
+          const m = String(d.getMonth() + 1).padStart(2, '0')
+          periodKeys.push({
+            key: `${y}-${m}`,
+            label: getMonthLabel(i),
+          })
+        }
         break
     }
 
-    for (let i = 0; i < periodCount; i++) {
-      labels.push(periodFn(i))
+    function matchesPeriod(
+      dateKey: string,
+      periodIdx: number,
+      periodKey: string,
+      range: TimeRangeType
+    ): boolean {
+      switch (range) {
+        case 'day':
+          return dateKey === periodKey
+        case 'week': {
+          const baseDaysAgo = periodIdx * 7
+          const today = new Date()
+          today.setHours(0, 0, 0, 0)
+          for (let d = baseDaysAgo; d < baseDaysAgo + 7; d++) {
+            const dt = new Date(today)
+            dt.setDate(dt.getDate() - d)
+            const y = dt.getFullYear()
+            const m = String(dt.getMonth() + 1).padStart(2, '0')
+            const day = String(dt.getDate()).padStart(2, '0')
+            if (dateKey === `${y}-${m}-${day}`) return true
+          }
+          return false
+        }
+        case 'month':
+          return dateKey.startsWith(periodKey)
+      }
+      return false
     }
 
     const colors = ['#f59e0b', '#9ca3af', '#d97706']
@@ -233,83 +284,42 @@ export function useCollectors() {
     return top3.map((r, idx) => {
       const points: TrendPoint[] = []
 
-      for (let p = periodCount - 1; p >= 0; p--) {
-        let daysAgo = 0
-        let rangeAggDays = 1
+      for (let p = 0; p < periodCount; p++) {
+        const pk = periodKeys[p]
+        let orders = 0
+        let weight = 0
+        let income = 0
+        let accepted = 0
+        let requested = 0
 
-        switch (range) {
-          case 'day':
-            daysAgo = p
-            rangeAggDays = 1
-            break
-          case 'week':
-            daysAgo = p * 7
-            rangeAggDays = 7
-            break
-          case 'month':
-            daysAgo = 0
-            const targetMonth = new Date()
-            targetMonth.setMonth(targetMonth.getMonth() - (periodCount - 1 - p))
-            const monthStart = new Date(
-              targetMonth.getFullYear(),
-              targetMonth.getMonth(),
-              1
-            )
-            const today = new Date()
-            const todayMidnight = new Date(
-              today.getFullYear(),
-              today.getMonth(),
-              today.getDate()
-            )
-            daysAgo = Math.floor(
-              (todayMidnight.getTime() - monthStart.getTime()) / 86400000
-            )
-            rangeAggDays = new Date(
-              targetMonth.getFullYear(),
-              targetMonth.getMonth() + 1,
-              0
-            ).getDate()
-            break
+        for (const stat of r.collector.dailyStats) {
+          if (matchesPeriod(stat.dateKey, p, pk.key, range)) {
+            orders += stat.orders
+            weight += stat.weight
+            income += stat.income
+            accepted += stat.accepted
+            requested += stat.requested
+          }
         }
 
         let value = 0
-        for (let d = 0; d < rangeAggDays; d++) {
-          const offset = daysAgo + d
-          const stat = r.collector.dailyStats[r.collector.dailyStats.length - 1 - offset]
-          if (stat) {
-            switch (sortBy) {
-              case 'orders':
-                value += stat.orders
-                break
-              case 'weight':
-                value += stat.weight
-                break
-              case 'income':
-                value += stat.income
-                break
-              case 'acceptRate':
-                value += stat.requested > 0 ? stat.accepted / stat.requested : 0
-                break
-            }
-          }
-        }
-
-        if (sortBy === 'acceptRate' && rangeAggDays > 1) {
-          let totalAcc = 0
-          let totalReq = 0
-          for (let d = 0; d < rangeAggDays; d++) {
-            const offset = daysAgo + d
-            const stat = r.collector.dailyStats[r.collector.dailyStats.length - 1 - offset]
-            if (stat) {
-              totalAcc += stat.accepted
-              totalReq += stat.requested
-            }
-          }
-          value = totalReq > 0 ? Math.round((totalAcc / totalReq) * 1000) / 10 : 0
+        switch (sortBy) {
+          case 'orders':
+            value = orders
+            break
+          case 'weight':
+            value = Math.round(weight * 10) / 10
+            break
+          case 'income':
+            value = Math.round(income * 100) / 100
+            break
+          case 'acceptRate':
+            value = requested > 0 ? Math.round((accepted / requested) * 1000) / 10 : 0
+            break
         }
 
         points.push({
-          label: labels[periodCount - 1 - p],
+          label: pk.label,
           value: Math.round(value * 100) / 100,
         })
       }

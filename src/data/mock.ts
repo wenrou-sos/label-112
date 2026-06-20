@@ -94,7 +94,7 @@ function generateDailyStats(days: number = 30): CollectorDailyStats[] {
 export function generateCollectors(count: number = 16): Collector[] {
   return collectorNames.slice(0, count).map((name, i) => {
     const regionIndex = i % 4
-    const dailyStats = generateDailyStats(30)
+    const dailyStats = generateDailyStats(180)
     const today = dailyStats[dailyStats.length - 1]
     const totalWeight = dailyStats.reduce((s, d) => s + d.weight, 0)
     const totalIncome = dailyStats.reduce((s, d) => s + d.income, 0)
