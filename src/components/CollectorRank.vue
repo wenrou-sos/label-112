@@ -45,7 +45,7 @@ const rankedList = computed<CollectorRankedStats[]>(() =>
 )
 
 const trendData = computed<CollectorTrend[]>(() =>
-  getTrendData(timeRange.value, 'orders')
+  getTrendData(timeRange.value, sortBy.value, 'orders')
 )
 
 function getStatValue(rs: CollectorRankedStats): string {

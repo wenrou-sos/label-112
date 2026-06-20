@@ -208,9 +208,10 @@ export function useCollectors() {
 
   function getTrendData(
     range: TimeRangeType,
-    sortBy: RankSortType
+    rankBy: RankSortType,
+    metric: RankSortType = rankBy
   ): CollectorTrend[] {
-    const top = getRankedCollectors(range, sortBy, 3)
+    const top = getRankedCollectors(range, rankBy, 3)
     const top3 = top.filter((x) => x.rank <= 3)
 
     let periodCount = 0
@@ -303,7 +304,7 @@ export function useCollectors() {
         }
 
         let value = 0
-        switch (sortBy) {
+        switch (metric) {
           case 'orders':
             value = orders
             break
